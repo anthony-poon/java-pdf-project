@@ -52,13 +52,12 @@ public class PDFCompressor {
         sourceDocument = PDDocument.loadNonSeq(sourceIO, null);
     }
     
-    public BufferedImage getPreview(int pageNum) throws IOException {
-        PageExtractor extractor = new PageExtractor(sourceDocument, pageNum, pageNum+1);
-        PDDocument extractedDoc = extractor.extract();
-        PDPage page = (PDPage) extractedDoc.getDocumentCatalog().getAllPages().get(0);
-        //PDPage page = (PDPage) sourceDocument.getDocumentCatalog().getAllPages().get(0);
-        extractedDoc.close();
-        return page.convertToImage(BufferedImage.TYPE_INT_BGR, dpi);
+    public int getNumberOfPage() {
+        if (sourceDocument != null) {
+            return sourceDocument.getNumberOfPages();
+        } else {
+            return 0;
+        }
     }
     
     public BufferedImage getBytePreview(int pageNum) throws IOException {
