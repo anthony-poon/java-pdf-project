@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -27,7 +29,8 @@ import javax.swing.JSlider;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import net.coobird.thumbnailator.Thumbnails;
-import pdfcompressor.PDFCompressor;
+import org.ghost4j.renderer.RendererException;
+import pdfcompressor.GhostCompressor;
 import pdfcompressor.ProgressListener;
 
 /**
@@ -40,7 +43,7 @@ public class CompressorView extends javax.swing.JFrame {
     private int currentPage = 1;
     private String pathToSoruce;
     private int compressRate = 50;
-    private PDFCompressor compressor;
+    private GhostCompressor compressor;
     private BufferedImage previewImage;
     private int zoom = 100;
     private int dpi = 200;
@@ -49,26 +52,15 @@ public class CompressorView extends javax.swing.JFrame {
     
     class fileSizeThread extends Thread {
         public fileSizeThread() {
-            super();
+            super("File size Thread");
         }
         public void run() {
             if (compressor != null) {
-                fileSizeValue.setText("Calcuelating...");
-                try {                
-                    compressor.addSizeEstimateListener(new ProgressListener() {
-                        @Override
-                        public void haveProgress(int currentProgress, int totalProgress) {
-                        }
-                        @Override
-                        public void finished() {
-                        }
-                        public void finished(int filesize) {
-                            fileSizeValue.setText(String.valueOf(Math.round(filesize/1024)) + " KB");
-                        }                    
-                    });
-                    compressor.getFileSize();
-                } catch (DocumentException | IOException ex) {
-                    JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+                try {
+                    fileSizeValue.setText("Calcuelating...");
+                    fileSizeValue.setText(String.valueOf(Math.round(compressor.getFileSize()/1024)) + " KB");
+                } catch (org.ghost4j.document.DocumentException | DocumentException | IOException | RendererException ex) {
+                    //System.out.println(ex.getMessage());
                 }
             }
         }
@@ -306,14 +298,7 @@ public class CompressorView extends javax.swing.JFrame {
             pathTextField.setText(chooser.getSelectedFile().getPath());
             pathToSoruce = chooser.getSelectedFile().getPath();
             try {
-                compressor = new PDFCompressor(pathToSoruce);
-                
-                /*dpiSlider.setEnabled(true);
-                zoomSlider.setEnabled(true);
-                compressLevelSlider.setEnabled(true);
-                compressButton.setEnabled(true);
-                nextButton.setEnabled(true);
-                backButton.setEnabled(true);*/
+                compressor = new GhostCompressor(pathToSoruce);
                 SwingUtilities.invokeLater(new Runnable() {
                     public void run() {
                         wrapper.add(previewPanel, BorderLayout.PAGE_START);
@@ -322,7 +307,7 @@ public class CompressorView extends javax.swing.JFrame {
                     }
                 });
                 renderPreview();
-            } catch (IOException ex) {
+            } catch (IOException | RendererException | org.ghost4j.document.DocumentException ex) {
                 JOptionPane.showMessageDialog(rootPane, ex.getMessage());
             } 
         }
@@ -402,21 +387,25 @@ public class CompressorView extends javax.swing.JFrame {
     }//GEN-LAST:event_compressLevelSliderStateChanged
 
     private void nextButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nextButtonActionPerformed
-        if (currentPage + 1 > compressor.getNumberOfPage()) {
-            currentPage = 0;
-        } else {
-            currentPage++;
-        }
-        try {
+        try {                                           
+            if (currentPage + 1 > compressor.getNumberOfPages()) {
+                currentPage = 1;
+            } else {
+                currentPage++;
+            }
             renderPreview();
-        } catch (IOException ex) {
+        } catch (org.ghost4j.document.DocumentException | IOException ex) {
             JOptionPane.showMessageDialog(rootPane, ex.getMessage());
         }
     }//GEN-LAST:event_nextButtonActionPerformed
 
     private void backButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_backButtonActionPerformed
         if (currentPage - 1 < 1) {
-            currentPage = compressor.getNumberOfPage();
+            try {
+                currentPage = compressor.getNumberOfPages();
+            } catch (org.ghost4j.document.DocumentException ex) {
+                JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+            }
         } else {
             currentPage--;
         }
@@ -441,39 +430,50 @@ public class CompressorView extends javax.swing.JFrame {
         }
     }
     private void renderPreview() throws IOException {  
-        compressor.setDPI(dpi);
-        compressor.setCompressRate(compressRate);
-        previewProgressBar.setVisible(true);
-        Thread previewLoadingThread = new Thread(){
-            @Override
-            public void run() {
-                try {
-                    previewImage = compressor.getBytePreview(currentPage);                
-                    SwingUtilities.invokeLater(new Runnable(){
-                        @Override
-                        public void run() {                            
-                            try {
-                                previewImage = Thumbnails.of(previewImage).scale((float) zoom/100).asBufferedImage();
-                            } catch (IOException ex) {
-                                JOptionPane.showMessageDialog(rootPane, ex.getMessage());
-                            }  
-                            int width = previewImage.getWidth();
-                            int height = previewImage.getHeight();
-                            previewPanel.getInnterPanel().setPreferredSize(new Dimension(width, height));
-                            previewPanel.setImage(previewImage);
-                            pageNumField.setText(String.valueOf(currentPage));
-                            previewProgressBar.setVisible(false);
-                            toggleControl(true);
-                        }
-                    });
-                } catch (IOException ex) {
-                    JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+        try {
+            compressor.setDPI(dpi);
+            compressor.setCompressRate(compressRate);
+            previewProgressBar.setVisible(true);
+            Thread previewLoadingThread = new Thread("Preview loading thread"){
+                @Override
+                public void run() {
+                    try {
+                        previewImage = compressor.getPreview(currentPage);
+                        SwingUtilities.invokeLater(new Runnable(){
+                            @Override
+                            public void run() {
+                                try {
+                                    previewImage = Thumbnails.of(previewImage).scale((float) zoom/100).asBufferedImage();
+                                
+                                int width = previewImage.getWidth();
+                                int height = previewImage.getHeight();
+                                previewPanel.getInnterPanel().setPreferredSize(new Dimension(width, height));
+                                previewPanel.setImage(previewImage);
+                                pageNumField.setText(String.valueOf(currentPage));
+                                previewProgressBar.setVisible(false);
+                                toggleControl(true);
+                                } catch (IOException ex) {
+                                    JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+                                }
+                            }
+                        });
+                    } catch (IOException | RendererException | org.ghost4j.document.DocumentException ex) {
+                        JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+                    }
                 }
+            };
+            if (fileSizeCalThread != null && !fileSizeCalThread.isAlive()) {
+                fileSizeCalThread.interrupt();
+                fileSizeCalThread = new fileSizeThread();
+                fileSizeCalThread.start();
+            } else {
+                fileSizeCalThread = new fileSizeThread();
+                fileSizeCalThread.start();
             }
-        };
-        fileSizeCalThread = new fileSizeThread();
-        fileSizeCalThread.start();
-        previewLoadingThread.start();
+            previewLoadingThread.start();
+        } catch (RendererException | org.ghost4j.document.DocumentException ex) {
+            JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+        }
     }
     /**
      * @param args the command line arguments
@@ -486,15 +486,11 @@ public class CompressorView extends javax.swing.JFrame {
                     break;
                 }
             }
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(CompressorView.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(CompressorView.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(CompressorView.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (javax.swing.UnsupportedLookAndFeelException ex) {
+        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
             java.util.logging.Logger.getLogger(CompressorView.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
+        
         //</editor-fold>
 
         /* Create and display the form */

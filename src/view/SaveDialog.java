@@ -6,11 +6,11 @@
 package view;
 
 import com.itextpdf.text.DocumentException;
-import java.awt.Dialog;
 import java.io.IOException;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
-import pdfcompressor.PDFCompressor;
+import org.ghost4j.renderer.RendererException;
+import pdfcompressor.GhostCompressor;
 import pdfcompressor.ProgressListener;
 
 /**
@@ -18,11 +18,11 @@ import pdfcompressor.ProgressListener;
  * @author anthony.poon
  */
 public class SaveDialog extends javax.swing.JDialog {
-    private PDFCompressor compresser;
+    private GhostCompressor compresser;
     private String path;
 
 
-    public SaveDialog(java.awt.Frame parent, boolean modal, String inPath, PDFCompressor inCom) {
+    public SaveDialog(java.awt.Frame parent, boolean modal, String inPath, GhostCompressor inCom) {
         super(parent, modal);
         initComponents();
         this.path = inPath;
@@ -37,27 +37,10 @@ public class SaveDialog extends javax.swing.JDialog {
             
             @Override
             public void run() {
-                compresser.addSizeEstimateListener(new ProgressListener() {
-                    @Override
-                    public void haveProgress(int currentProgress, int totalProgress) {
-                        progressBar.setIndeterminate(false);
-                        progressBar.setMaximum(totalProgress);
-                        progressBar.setValue(currentProgress);
-                    }
-                    
-                    @Override
-                    public void finished() {
-                        dialog.dispose();
-                    }
-
-                    @Override
-                    public void finished(int totalProgress) {
-                        dialog.dispose();
-                    }
-                });
                 try {
                     compresser.outputPDF(path);
-                } catch (DocumentException | IOException ex) {
+                    dialog.dispose();
+                } catch (org.ghost4j.document.DocumentException |RendererException | DocumentException | IOException ex) {
                     JOptionPane.showMessageDialog(rootPane, ex.getMessage());
                 }
             }

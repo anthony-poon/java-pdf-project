@@ -1,0 +1,114 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package pdfcompressor;
+
+import com.itextpdf.text.BadElementException;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.Image;
+import com.itextpdf.text.pdf.PdfWriter;
+import java.awt.Color;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import org.ghost4j.analyzer.AnalysisItem;
+import org.ghost4j.analyzer.FontAnalyzer;
+import org.ghost4j.document.DocumentException;
+import org.ghost4j.document.PDFDocument;
+import org.ghost4j.renderer.RendererException;
+import org.ghost4j.renderer.SimpleRenderer;
+
+/**
+ *
+ * @author anthony.poon
+ */
+
+public class GhostCompressor {
+    private static int numOfPages;
+    private static File sourceIO;
+    private PDFDocument sourceDocument = new PDFDocument();
+    private SimpleRenderer renderer = new SimpleRenderer();
+    private static float compressRate = 0.7f;
+    private static int dpi = 200;
+    private final List<ProgressListener> sizeEstimateListener = new ArrayList<>();
+
+    public GhostCompressor(String pathToSurce) throws IOException, RendererException, DocumentException{        
+        sourceDocument.load(new File(pathToSurce));
+        //renderer.setMaxProcessCount(2);
+    }
+    
+    public synchronized BufferedImage getPreview(int pageNum) throws IOException, RendererException, DocumentException {
+        renderer.setResolution(dpi);
+        List<java.awt.Image> images = renderer.render(sourceDocument,pageNum-1,pageNum-1);
+        return (BufferedImage) images.get(0);
+    }
+    
+    public int getNumberOfPages() throws DocumentException{
+        return sourceDocument.getPageCount();
+    }
+
+    public synchronized void outputPDF(String pathToOutput) throws com.itextpdf.text.DocumentException, FileNotFoundException, BadElementException, IOException, RendererException, DocumentException{
+        com.itextpdf.text.Image itextImg;        
+        Document outDocument = new Document();
+        outDocument.setMargins(0f, 0f, 0f, 0f);
+        PdfWriter writer = PdfWriter.getInstance(outDocument, new FileOutputStream(pathToOutput));
+        writer.setFullCompression();        
+        writer.open();
+        outDocument.open();
+        renderer.setResolution(dpi);
+        List<java.awt.Image> images = renderer.render(sourceDocument);
+        for (java.awt.Image img : images) {            
+            //itextImg = Image.getInstance(getImageByteArray(img, compressRate));
+            itextImg = Image.getInstance(img, Color.white);
+            itextImg.scaleToFit(595f, 842f);
+            outDocument.add(itextImg);
+        }
+        outDocument.close();
+        writer.close();
+    }
+    
+    public synchronized int getFileSize() throws DocumentException, com.itextpdf.text.DocumentException, IOException, RendererException{
+        ByteArrayOutputStream memoryStream = new ByteArrayOutputStream();
+        com.itextpdf.text.Image itextImg;        
+        Document outDocument = new Document();
+        outDocument.setMargins(0f, 0f, 0f, 0f);
+        PdfWriter writer = PdfWriter.getInstance(outDocument, memoryStream);
+        writer.setFullCompression();        
+        writer.open();
+        outDocument.open();
+        renderer.setResolution(dpi);
+        List<java.awt.Image> images = renderer.render(sourceDocument);
+        for (java.awt.Image img : images) {            
+            //itextImg = Image.getInstance(getImageByteArray(img, compressRate));
+            itextImg = Image.getInstance(img, Color.white);
+            itextImg.scaleToFit(595f, 842f);
+            outDocument.add(itextImg);
+        }
+        outDocument.close();
+        writer.close();
+        int size = memoryStream.toByteArray().length;
+        memoryStream = null;
+        return size;
+    }
+    
+    public void addSizeEstimateListener(ProgressListener listener) {
+        sizeEstimateListener.add(listener);
+    }
+    
+    public void setDPI(int dpi) throws IOException, RendererException, DocumentException {
+        this.dpi = dpi;
+    }
+    
+    public void setCompressRate(int rate) {
+        this.compressRate = (float) rate/100;
+    }
+    
+}
