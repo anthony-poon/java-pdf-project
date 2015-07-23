@@ -5,14 +5,10 @@
  */
 package view;
 
-import java.awt.Color;
 import java.awt.Cursor;
-import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
@@ -29,40 +25,37 @@ import javax.swing.event.MouseInputAdapter;
 
 public class DragZoomPanel extends JScrollPane {
     
+    private CompressorView parent;
     private JScrollPane scrollPane;
-    private MouseEvent mouseHoldEvent;
     private BufferedImage image;
     private final JPanel imagePanel = new ImagePanel();
     private Point comparePoint = null;
     
     MouseInputAdapter mouseAction = new MouseInputAdapter() {
+        @Override
         public void mousePressed(MouseEvent e){
             setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
         }
+        @Override
         public void mouseReleased(MouseEvent e){
             comparePoint = null;
             setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-        }        
+        }      
     };
     
     MouseMotionListener doScrollRectToVisible = new MouseMotionAdapter() {
+        @Override
         public void mouseDragged(MouseEvent e) {
-            double moveRate = 1;
-            //panelBeingScrolled.scrollRectToVisible(r);
             if (comparePoint == null) {
                 comparePoint = new Point(e.getX(), e.getY());
             }
             int xDisplacement = comparePoint.x - e.getX();
             int yDisplacement = comparePoint.y - e.getY();
             comparePoint = new Point(e.getX(), e.getY());
-            //scrollPane.setAutoscrolls(true);
-            //scrollPane.getViewport().toViewCoordinates(new Point(10000, 10000));
             JScrollBar hScroll = scrollPane.getHorizontalScrollBar();
             JScrollBar vScroll = scrollPane.getVerticalScrollBar();
-            hScroll.setValue((int) Math.round(hScroll.getValue() + xDisplacement * moveRate));
-            vScroll.setValue((int) Math.round(vScroll.getValue() + yDisplacement * moveRate));
-            Rectangle r = new Rectangle(10000, 10000);
-            //scrollPane.scrollRectToVisible(r);            
+            hScroll.setValue((int) Math.round(hScroll.getValue() + xDisplacement));
+            vScroll.setValue((int) Math.round(vScroll.getValue() + yDisplacement));   
         }       
         
     };
@@ -79,8 +72,9 @@ public class DragZoomPanel extends JScrollPane {
         }
     }
     
-    public DragZoomPanel() {
-        super();        
+    public DragZoomPanel(CompressorView parent) {
+        super();
+        this.parent = parent;
         this.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
         this.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
         this.setVisible(true);
@@ -99,7 +93,6 @@ public class DragZoomPanel extends JScrollPane {
                 imagePanel.revalidate();
             }
         });
-        //imagePanel.repaint();
     }
     
     public JPanel getInnterPanel() {

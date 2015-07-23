@@ -43,28 +43,12 @@ public class CompressorView extends javax.swing.JFrame {
     private int currentPage = 1;
     private String pathToSoruce;
     private int compressRate = 50;
-    private GhostCompressor compressor;
+    private GhostCompressor compressor = new GhostCompressor();
     private BufferedImage previewImage;
     private int zoom = 100;
-    private int dpi = 200;
-    private final DragZoomPanel previewPanel = new DragZoomPanel();
-    private Thread fileSizeCalThread;   
+    private int dpi = 100;
+    private final DragZoomPanel previewPanel = new DragZoomPanel(this);
     
-    class fileSizeThread extends Thread {
-        public fileSizeThread() {
-            super("File size Thread");
-        }
-        public void run() {
-            if (compressor != null) {
-                try {
-                    fileSizeValue.setText("Calcuelating...");
-                    fileSizeValue.setText(String.valueOf(Math.round(compressor.getFileSize()/1024)) + " KB");
-                } catch (org.ghost4j.document.DocumentException | DocumentException | IOException | RendererException ex) {
-                    //System.out.println(ex.getMessage());
-                }
-            }
-        }
-    }
     public CompressorView() {
         initComponents();        
     }
@@ -80,8 +64,6 @@ public class CompressorView extends javax.swing.JFrame {
         compressButton = new javax.swing.JButton();
         zoomSlider = new javax.swing.JSlider();
         jLabel1 = new javax.swing.JLabel();
-        compressLevelSlider = new javax.swing.JSlider();
-        jLabel2 = new javax.swing.JLabel();
         jLabel3 = new javax.swing.JLabel();
         previewProgressBar = new javax.swing.JProgressBar();
         wrapper = new javax.swing.JPanel();
@@ -108,6 +90,7 @@ public class CompressorView extends javax.swing.JFrame {
         dpiSlider.setMajorTickSpacing(50);
         dpiSlider.setMaximum(300);
         dpiSlider.setMinimum(50);
+        dpiSlider.setMinorTickSpacing(10);
         dpiSlider.setPaintLabels(true);
         dpiSlider.setPaintTicks(true);
         dpiSlider.setSnapToTicks(true);
@@ -155,25 +138,6 @@ public class CompressorView extends javax.swing.JFrame {
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel1.setText("Zoom");
 
-        Hashtable compressLabelTable = new Hashtable();
-        for (Integer i = 10; i <= 100; i = i + 10) {
-            compressLabelTable.put(i, new JLabel(i.toString() + "%") );
-        }
-        compressLevelSlider.setLabelTable(compressLabelTable);
-        compressLevelSlider.setMajorTickSpacing(10);
-        compressLevelSlider.setMinimum(10);
-        compressLevelSlider.setPaintLabels(true);
-        compressLevelSlider.setPaintTicks(true);
-        compressLevelSlider.setEnabled(false);
-        compressLevelSlider.addChangeListener(new javax.swing.event.ChangeListener() {
-            public void stateChanged(javax.swing.event.ChangeEvent evt) {
-                compressLevelSliderStateChanged(evt);
-            }
-        });
-
-        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
-        jLabel2.setText("Compress Level");
-
         jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
         jLabel3.setText("DPI");
 
@@ -212,29 +176,24 @@ public class CompressorView extends javax.swing.JFrame {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addGroup(layout.createSequentialGroup()
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                                    .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                    .addComponent(compressButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(compressLevelSlider, javax.swing.GroupLayout.DEFAULT_SIZE, 511, Short.MAX_VALUE)
-                                    .addGroup(layout.createSequentialGroup()
-                                        .addComponent(backButton)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(pageNumField, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(nextButton, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                        .addComponent(fileSizeLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 151, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                        .addComponent(fileSizeValue, javax.swing.GroupLayout.PREFERRED_SIZE, 126, javax.swing.GroupLayout.PREFERRED_SIZE))))
                             .addComponent(previewProgressBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(wrapper, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                            .addComponent(wrapper, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                                .addComponent(compressButton)
+                                .addGap(4, 4, 4)
+                                .addComponent(backButton)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(pageNumField, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(nextButton, javax.swing.GroupLayout.PREFERRED_SIZE, 73, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 81, Short.MAX_VALUE)
+                                .addComponent(fileSizeLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 141, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addComponent(fileSizeValue, javax.swing.GroupLayout.PREFERRED_SIZE, 92, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(zoomSlider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                            .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(zoomSlider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
                             .addComponent(openPDFLabel, javax.swing.GroupLayout.DEFAULT_SIZE, 91, Short.MAX_VALUE)
@@ -261,26 +220,24 @@ public class CompressorView extends javax.swing.JFrame {
                     .addComponent(jLabel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                     .addComponent(dpiSlider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(compressLevelSlider, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jLabel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                                .addComponent(compressButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 45, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(zoomSlider, javax.swing.GroupLayout.DEFAULT_SIZE, 358, Short.MAX_VALUE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                                .addComponent(fileSizeLabel, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addComponent(nextButton)
+                                .addComponent(compressButton)
                                 .addComponent(backButton)
-                                .addComponent(pageNumField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                                .addComponent(nextButton))
-                            .addComponent(fileSizeLabel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                            .addComponent(fileSizeValue, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                .addComponent(pageNumField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                            .addComponent(fileSizeValue, javax.swing.GroupLayout.PREFERRED_SIZE, 23, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(wrapper, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(previewProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addComponent(zoomSlider, javax.swing.GroupLayout.PREFERRED_SIZE, 347, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(previewProgressBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap())
         );
 
@@ -295,31 +252,72 @@ public class CompressorView extends javax.swing.JFrame {
         chooser.setFileFilter(filter);
         int returnedVal = chooser.showOpenDialog(this);
         if(returnedVal == JFileChooser.APPROVE_OPTION) {
-            pathTextField.setText(chooser.getSelectedFile().getPath());
-            pathToSoruce = chooser.getSelectedFile().getPath();
             try {
-                compressor = new GhostCompressor(pathToSoruce);
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        wrapper.add(previewPanel, BorderLayout.PAGE_START);
-                        wrapper.revalidate();
-                        wrapper.repaint();
+                toggleControl(false);
+                pageNumField.setText("1");
+                currentPage = 1;
+                pathTextField.setText(chooser.getSelectedFile().getPath());
+                pathToSoruce = chooser.getSelectedFile().getPath();
+                wrapper.add(previewPanel, BorderLayout.PAGE_START);
+                compressor.addSizeEstimateListener(new ProgressListener() {
+                    @Override
+                    public void haveProgress(int currentProgress, int totalProgress) {
+                    }
+
+                    @Override
+                    public void finished() {
+                    }
+
+                    @Override
+                    public void finished(int totalProgress) {
+                        fileSizeValue.setText(String.valueOf(Math.round(totalProgress/1024) + " KB"));
+                    }
+
+                    @Override
+                    public void start() {
+                        fileSizeValue.setText("Calculating...");
                     }
                 });
-                renderPreview();
-            } catch (IOException | RendererException | org.ghost4j.document.DocumentException ex) {
+                
+                compressor.addRenderListener(new ProgressListener() {
+                    
+                    @Override
+                    public void haveProgress(int currentProgress, int totalProgress) {
+                    }
+                    
+                    @Override
+                    public void finished() {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            public void run() {
+                                previewProgressBar.setVisible(false);
+                            }
+                        });
+                        toggleControl(true);
+                        renderPreview();
+                    }
+                    
+                    @Override
+                    public void finished(int totalProgress) {
+                    }
+                    
+                    public void start() {
+                        previewProgressBar.setVisible(true);
+                    }
+                });
+                compressor.setInput(pathToSoruce);
+            } catch (IOException | RendererException | org.ghost4j.document.DocumentException | DocumentException ex) {
                 JOptionPane.showMessageDialog(rootPane, ex.getMessage());
-            } 
+            }
         }
     }//GEN-LAST:event_browseOnClick
 
     private void dpiSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_dpiSliderStateChanged
         JSlider source = (JSlider)evt.getSource();
         if (!source.getValueIsAdjusting()) {
-            dpi = dpiSlider.getValue();
             try {
-                renderPreview();
-            } catch (IOException ex) {
+                toggleControl(false);
+                compressor.setDPI(dpiSlider.getValue());
+            } catch (IOException | RendererException | org.ghost4j.document.DocumentException ex) {
                 JOptionPane.showMessageDialog(rootPane, ex.getMessage());
             }
         }
@@ -364,28 +362,23 @@ public class CompressorView extends javax.swing.JFrame {
     private void zoomSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zoomSliderStateChanged
         JSlider source = (JSlider)evt.getSource();
         if (!source.getValueIsAdjusting()) {
-            zoom = zoomSlider.getValue();
-            try {
-                renderPreview();
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(rootPane, ex.getMessage());
-            }
+            setZoomLevel(zoomSlider.getValue());
         }
     }//GEN-LAST:event_zoomSliderStateChanged
-
-    private void compressLevelSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_compressLevelSliderStateChanged
-        // TODO add your handling code here:
-        JSlider source = (JSlider)evt.getSource();
-        if (!source.getValueIsAdjusting()) {
-            compressRate = compressLevelSlider.getValue();
-            try {
-                renderPreview();
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+    
+    public int getZoomLevel() {
+        return zoom;
+    }
+    
+    public void setZoomLevel(int level) {
+        if (level >= zoomSlider.getMinimum() && level <= zoomSlider.getMaximum()) {
+            this.zoom = level;
+            renderPreview();
+            if (zoomSlider.getValue() != level) {
+                zoomSlider.setValue(level);
             }
         }
-    }//GEN-LAST:event_compressLevelSliderStateChanged
-
+    }
     private void nextButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nextButtonActionPerformed
         try {                                           
             if (currentPage + 1 > compressor.getNumberOfPages()) {
@@ -394,7 +387,7 @@ public class CompressorView extends javax.swing.JFrame {
                 currentPage++;
             }
             renderPreview();
-        } catch (org.ghost4j.document.DocumentException | IOException ex) {
+        } catch (org.ghost4j.document.DocumentException ex) {
             JOptionPane.showMessageDialog(rootPane, ex.getMessage());
         }
     }//GEN-LAST:event_nextButtonActionPerformed
@@ -409,11 +402,7 @@ public class CompressorView extends javax.swing.JFrame {
         } else {
             currentPage--;
         }
-        try {
-            renderPreview();
-        } catch (IOException ex) {
-            JOptionPane.showMessageDialog(rootPane, ex.getMessage());
-        }
+        renderPreview();
     }//GEN-LAST:event_backButtonActionPerformed
     
     
@@ -421,59 +410,35 @@ public class CompressorView extends javax.swing.JFrame {
         List<JComponent> list = new ArrayList<>();
         list.add(dpiSlider);
         list.add(zoomSlider);
-        list.add(compressLevelSlider);
         list.add(compressButton);
         list.add(nextButton);
         list.add(backButton);
+        list.add(browseButton);
         for (JComponent element : list) {
             element.setEnabled(status);
         }
     }
-    private void renderPreview() throws IOException {  
-        try {
-            compressor.setDPI(dpi);
-            compressor.setCompressRate(compressRate);
-            previewProgressBar.setVisible(true);
-            Thread previewLoadingThread = new Thread("Preview loading thread"){
-                @Override
-                public void run() {
-                    try {
-                        previewImage = compressor.getPreview(currentPage);
-                        SwingUtilities.invokeLater(new Runnable(){
-                            @Override
-                            public void run() {
-                                try {
-                                    previewImage = Thumbnails.of(previewImage).scale((float) zoom/100).asBufferedImage();
-                                
-                                int width = previewImage.getWidth();
-                                int height = previewImage.getHeight();
-                                previewPanel.getInnterPanel().setPreferredSize(new Dimension(width, height));
-                                previewPanel.setImage(previewImage);
-                                pageNumField.setText(String.valueOf(currentPage));
-                                previewProgressBar.setVisible(false);
-                                toggleControl(true);
-                                } catch (IOException ex) {
-                                    JOptionPane.showMessageDialog(rootPane, ex.getMessage());
-                                }
-                            }
-                        });
-                    } catch (IOException | RendererException | org.ghost4j.document.DocumentException ex) {
-                        JOptionPane.showMessageDialog(rootPane, ex.getMessage());
-                    }
+    private void renderPreview() {  
+        SwingUtilities.invokeLater(new Runnable(){
+            @Override
+            public void run() {
+                try {
+                    previewImage = compressor.getPreview(currentPage);
+                    previewImage = Thumbnails.of(previewImage).scale((float) zoom/100).asBufferedImage();
+                    int width = previewImage.getWidth();
+                    int height = previewImage.getHeight();
+                    previewPanel.getInnterPanel().setPreferredSize(new Dimension(width, height));
+                    previewPanel.setImage(previewImage);
+                    pageNumField.setText(String.valueOf(currentPage));
+                    previewProgressBar.setVisible(false);
+                    toggleControl(true);
+                    wrapper.revalidate();
+                    wrapper.repaint();
+                } catch (IOException | RendererException | org.ghost4j.document.DocumentException ex) {
+                    JOptionPane.showMessageDialog(rootPane, ex.getMessage());
                 }
-            };
-            if (fileSizeCalThread != null && !fileSizeCalThread.isAlive()) {
-                fileSizeCalThread.interrupt();
-                fileSizeCalThread = new fileSizeThread();
-                fileSizeCalThread.start();
-            } else {
-                fileSizeCalThread = new fileSizeThread();
-                fileSizeCalThread.start();
             }
-            previewLoadingThread.start();
-        } catch (RendererException | org.ghost4j.document.DocumentException ex) {
-            JOptionPane.showMessageDialog(rootPane, ex.getMessage());
-        }
+        });
     }
     /**
      * @param args the command line arguments
@@ -506,12 +471,10 @@ public class CompressorView extends javax.swing.JFrame {
     private javax.swing.JButton backButton;
     private javax.swing.JButton browseButton;
     private javax.swing.JButton compressButton;
-    private javax.swing.JSlider compressLevelSlider;
     private javax.swing.JSlider dpiSlider;
     private javax.swing.JLabel fileSizeLabel;
     private javax.swing.JLabel fileSizeValue;
     private javax.swing.JLabel jLabel1;
-    private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JButton nextButton;
     private javax.swing.JLabel openPDFLabel;

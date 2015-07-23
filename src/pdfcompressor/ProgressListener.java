@@ -10,6 +10,7 @@ package pdfcompressor;
  * @author anthony.poon
  */
 public interface ProgressListener {
+    public void start();
     public void haveProgress(int currentProgress, int totalProgress);
     public void finished();
     public void finished(int totalProgress);

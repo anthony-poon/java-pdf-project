@@ -2,3 +2,4 @@ nbproject/*.*
 Thumbs.db
 ehthumbs.db
 *.log
+build
