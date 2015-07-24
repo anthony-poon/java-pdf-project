@@ -14,4 +14,5 @@ public interface ProgressListener {
     public void haveProgress(int currentProgress, int totalProgress);
     public void finished();
     public void finished(int totalProgress);
+    public void exceptionHandling(Throwable ex);
 }

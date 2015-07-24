@@ -8,6 +8,7 @@ package pdfcompressor;
 import com.itextpdf.text.BadElementException;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.Image;
+import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.PdfWriter;
 import java.awt.Color;
 import java.awt.image.BufferedImage;
@@ -16,8 +17,15 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.ghost4j.display.PageRaster;
 import org.ghost4j.document.DocumentException;
 import org.ghost4j.document.PDFDocument;
 import org.ghost4j.renderer.RendererException;
@@ -29,22 +37,20 @@ import org.ghost4j.renderer.SimpleRenderer;
  */
 
 public class GhostCompressor {
-    private static int numOfPages;
-    private static File sourceIO;
+    private static final float pptInchRate = 0.0138889f;
     private PDFDocument sourceDocument = new PDFDocument();
     private SimpleRenderer renderer = new SimpleRenderer();
     private RenderThread renderThread;
     private SizeThread sizeThread;
-    private static float compressRate = 0.7f;
     private static int dpi = 200;
     private final List<ProgressListener> sizeEstimateListener = new ArrayList<>();
     private final List<ProgressListener> renderListener = new ArrayList<>();
     private List<java.awt.Image> images = new ArrayList<>();
-    private FileOutputStream outputStrem;
+    private List<PageRaster> rasters = new ArrayList<>();
     private int fileSize = 0;
     private boolean isRendered = false;
 
-    class RenderThread extends Thread {
+    class RenderThread extends Thread{
         public RenderThread() {
             super();
         }
@@ -58,12 +64,19 @@ public class GhostCompressor {
                 if (sizeThread != null && sizeThread.isAlive()) {
                     sizeThread.interrupt();
                 }
+                rasters = renderer.run(sourceDocument, 0, sourceDocument.getPageCount());
                 images = renderer.render(sourceDocument);
                 isRendered = true;
                 sizeThread = new SizeThread();
                 sizeThread.start();
-            } catch (IOException | RendererException | DocumentException ex) {
-                System.out.println(ex.getMessage());
+            } catch (IOException | RendererException | DocumentException | UnsatisfiedLinkError ex) {                
+                if (sizeThread != null && sizeThread.isAlive()) {
+                    sizeThread.interrupt();
+                }
+                for (ProgressListener listener : renderListener) {
+                    listener.exceptionHandling((Throwable) ex);
+                }
+                this.interrupt();
             }
             
             for (ProgressListener listener : renderListener) {
@@ -76,6 +89,7 @@ public class GhostCompressor {
         public SizeThread() {
             super();
         }
+        @Override
         public void run() {
             try {
                 if (isRendered == true) { 
@@ -88,12 +102,26 @@ public class GhostCompressor {
                     listener.finished(fileSize);
                 }                
             } catch (DocumentException | com.itextpdf.text.DocumentException | IOException | RendererException ex) {
-                System.out.println(ex.getMessage());
+                for (ProgressListener listener : renderListener) {
+                    listener.exceptionHandling((Throwable) ex);
+                }
+                this.interrupt();
             }                
         }
     }
     
-    public GhostCompressor(){        
+    public GhostCompressor(){
+        try {
+            InputStream inStream = this.getClass().getResourceAsStream("gsdll64.dll");            
+            File tempLib = new File(System.getProperty("java.io.tmpdir") + File.separator + "gsdll64.dll");
+            OutputStream outStream = FileUtils.openOutputStream(tempLib);
+            IOUtils.copy(inStream, outStream);
+            inStream.close();
+            outStream.close();
+            System.load(tempLib.getAbsolutePath());
+        } catch (IOException ex) {
+            Logger.getLogger(GhostCompressor.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
     
     public void setInput(String pathToSurce) throws IOException, RendererException, DocumentException, com.itextpdf.text.DocumentException {
@@ -129,10 +157,17 @@ public class GhostCompressor {
         writer.setFullCompression();        
         writer.open();
         outDocument.open();
-        for (java.awt.Image img : images) {            
+        int page = 0;
+        for (java.awt.Image img : images) {
+            float width = rasters.get(page).getWidth()/pptInchRate/dpi;
+            float height = rasters.get(page).getHeight()/pptInchRate/dpi;
+            Rectangle pageSize = new Rectangle(width, height);
+            outDocument.setPageSize(pageSize);
+            outDocument.newPage();
             itextImg = Image.getInstance(img, Color.white);
-            itextImg.scaleToFit(595f, 842f);
+            itextImg.scaleToFit(width, height);
             outDocument.add(itextImg);
+            page++;
         }
         outDocument.close();
         writer.close();
@@ -148,10 +183,17 @@ public class GhostCompressor {
             writer.setFullCompression();        
             writer.open();
             outDocument.open();        
-            for (java.awt.Image img : images) {            
+            int page = 0;
+            for (java.awt.Image img : images) {
+                float width = rasters.get(page).getWidth()/pptInchRate/dpi;
+                float height = rasters.get(page).getHeight()/pptInchRate/dpi;
+                Rectangle pageSize = new Rectangle(width, height);
+                outDocument.setPageSize(pageSize);
+                outDocument.newPage();
                 itextImg = Image.getInstance(img, Color.white);
-                itextImg.scaleToFit(595f, 842f);
+                itextImg.scaleToFit(width, height);
                 outDocument.add(itextImg);
+                page++;
             }
             outDocument.close();
             writer.close();
@@ -171,15 +213,13 @@ public class GhostCompressor {
         renderListener.add(listener);
     }
     
+    public void setDPIByPassRerender(int dpi) {
+        this.dpi = dpi;
+    }
     public void setDPI(int dpi) throws IOException, RendererException, DocumentException {
         if (this.dpi != dpi) {
             this.dpi = dpi;
             rerender();
         }
-    }
-    
-    public void setCompressRate(int rate) {
-        this.compressRate = (float) rate/100;
-    }
-    
+    }    
 }

@@ -1,10 +1,10 @@
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools |
-    @Override
-    public void run() {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
+ @Override
+ public void run() {
+ throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+ }
  Templates
  * and open the template in the editor.
  */
@@ -37,9 +37,8 @@ import pdfcompressor.ProgressListener;
  *
  * @author anthony.poon
  */
-
-
 public class CompressorView extends javax.swing.JFrame {
+
     private int currentPage = 1;
     private String pathToSoruce;
     private int compressRate = 50;
@@ -48,9 +47,9 @@ public class CompressorView extends javax.swing.JFrame {
     private int zoom = 100;
     private int dpi = 100;
     private final DragZoomPanel previewPanel = new DragZoomPanel(this);
-    
+
     public CompressorView() {
-        initComponents();        
+        initComponents();
     }
 
     @SuppressWarnings("unchecked")
@@ -251,71 +250,86 @@ public class CompressorView extends javax.swing.JFrame {
         chooser.setAcceptAllFileFilterUsed(false);
         chooser.setFileFilter(filter);
         int returnedVal = chooser.showOpenDialog(this);
-        if(returnedVal == JFileChooser.APPROVE_OPTION) {
+        if (returnedVal == JFileChooser.APPROVE_OPTION) {
+            toggleControl(false);
+            pageNumField.setText("1");
+            currentPage = 1;
+            pathTextField.setText(chooser.getSelectedFile().getPath());
+            pathToSoruce = chooser.getSelectedFile().getPath();
+            wrapper.add(previewPanel, BorderLayout.PAGE_START);
+            compressor.setDPIByPassRerender(dpi);
+            compressor.addSizeEstimateListener(new ProgressListener() {
+                @Override
+                public void haveProgress(int currentProgress, int totalProgress) {
+                }
+
+                @Override
+                public void finished() {
+                }
+
+                @Override
+                public void finished(int totalProgress) {
+                    fileSizeValue.setText(String.valueOf(Math.round(totalProgress / 1024) + " KB"));
+                }
+
+                @Override
+                public void start() {
+                    fileSizeValue.setText("Calculating...");
+                }
+
+                public void exceptionHandling(Throwable ex) {
+                    JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+                    System.exit(1);
+                }
+            });
+
+            compressor.addRenderListener(new ProgressListener() {
+
+                @Override
+                public void haveProgress(int currentProgress, int totalProgress) {
+                }
+
+                @Override
+                public void finished() {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            previewProgressBar.setVisible(false);
+                        }
+                    });
+                    toggleControl(true);
+                    renderPreview();
+                }
+
+                @Override
+                public void finished(int totalProgress) {
+                }
+
+                public void start() {
+                    previewProgressBar.setVisible(true);
+                    toggleControl(false);
+                }
+
+                @Override
+                public void exceptionHandling(Throwable ex) {
+                    JOptionPane.showMessageDialog(rootPane, ex.getMessage());
+                    System.exit(1);
+                }
+            });
             try {
-                toggleControl(false);
-                pageNumField.setText("1");
-                currentPage = 1;
-                pathTextField.setText(chooser.getSelectedFile().getPath());
-                pathToSoruce = chooser.getSelectedFile().getPath();
-                wrapper.add(previewPanel, BorderLayout.PAGE_START);
-                compressor.addSizeEstimateListener(new ProgressListener() {
-                    @Override
-                    public void haveProgress(int currentProgress, int totalProgress) {
-                    }
-
-                    @Override
-                    public void finished() {
-                    }
-
-                    @Override
-                    public void finished(int totalProgress) {
-                        fileSizeValue.setText(String.valueOf(Math.round(totalProgress/1024) + " KB"));
-                    }
-
-                    @Override
-                    public void start() {
-                        fileSizeValue.setText("Calculating...");
-                    }
-                });
-                
-                compressor.addRenderListener(new ProgressListener() {
-                    
-                    @Override
-                    public void haveProgress(int currentProgress, int totalProgress) {
-                    }
-                    
-                    @Override
-                    public void finished() {
-                        SwingUtilities.invokeLater(new Runnable() {
-                            public void run() {
-                                previewProgressBar.setVisible(false);
-                            }
-                        });
-                        toggleControl(true);
-                        renderPreview();
-                    }
-                    
-                    @Override
-                    public void finished(int totalProgress) {
-                    }
-                    
-                    public void start() {
-                        previewProgressBar.setVisible(true);
-                    }
-                });
                 compressor.setInput(pathToSoruce);
             } catch (IOException | RendererException | org.ghost4j.document.DocumentException | DocumentException ex) {
                 JOptionPane.showMessageDialog(rootPane, ex.getMessage());
             }
+
+        } else {
+            browseButton.setEnabled(true);
         }
     }//GEN-LAST:event_browseOnClick
 
     private void dpiSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_dpiSliderStateChanged
-        JSlider source = (JSlider)evt.getSource();
+        JSlider source = (JSlider) evt.getSource();
         if (!source.getValueIsAdjusting()) {
-            try {
-                toggleControl(false);
+            try {                
                 compressor.setDPI(dpiSlider.getValue());
             } catch (IOException | RendererException | org.ghost4j.document.DocumentException ex) {
                 JOptionPane.showMessageDialog(rootPane, ex.getMessage());
@@ -324,32 +338,32 @@ public class CompressorView extends javax.swing.JFrame {
     }//GEN-LAST:event_dpiSliderStateChanged
 
     private void compressButtonPressed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_compressButtonPressed
-        JFileChooser chooser = new JFileChooser(){
+        JFileChooser chooser = new JFileChooser() {
             @Override
-                public void approveSelection(){
-                    File f = getSelectedFile();
-                    if(f.exists() && getDialogType() == SAVE_DIALOG){
-                        int result = JOptionPane.showConfirmDialog(this,"The file exists, overwrite?","Existing file",JOptionPane.YES_NO_CANCEL_OPTION);
-                        switch(result){
-                            case JOptionPane.YES_OPTION:
-                                super.approveSelection();
-                                return;
-                            case JOptionPane.NO_OPTION:
-                                return;
-                            case JOptionPane.CLOSED_OPTION:
-                                return;
-                            case JOptionPane.CANCEL_OPTION:
-                                cancelSelection();
-                                return;
-                        }
+            public void approveSelection() {
+                File f = getSelectedFile();
+                if (f.exists() && getDialogType() == SAVE_DIALOG) {
+                    int result = JOptionPane.showConfirmDialog(this, "The file exists, overwrite?", "Existing file", JOptionPane.YES_NO_CANCEL_OPTION);
+                    switch (result) {
+                        case JOptionPane.YES_OPTION:
+                            super.approveSelection();
+                            return;
+                        case JOptionPane.NO_OPTION:
+                            return;
+                        case JOptionPane.CLOSED_OPTION:
+                            return;
+                        case JOptionPane.CANCEL_OPTION:
+                            cancelSelection();
+                            return;
                     }
-                    super.approveSelection();
-                } 
+                }
+                super.approveSelection();
+            }
         };
         FileNameExtensionFilter filter = new FileNameExtensionFilter("PDF Document", "pdf");
         chooser.setFileFilter(filter);
         int returnedVal = chooser.showSaveDialog(this);
-        if(returnedVal == JFileChooser.APPROVE_OPTION) {
+        if (returnedVal == JFileChooser.APPROVE_OPTION) {
             String filePath = chooser.getSelectedFile().getAbsolutePath();
             boolean isAffixed = chooser.getSelectedFile().getName().lastIndexOf(".") != -1;
             if (!isAffixed) {
@@ -360,16 +374,16 @@ public class CompressorView extends javax.swing.JFrame {
     }//GEN-LAST:event_compressButtonPressed
 
     private void zoomSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_zoomSliderStateChanged
-        JSlider source = (JSlider)evt.getSource();
+        JSlider source = (JSlider) evt.getSource();
         if (!source.getValueIsAdjusting()) {
             setZoomLevel(zoomSlider.getValue());
         }
     }//GEN-LAST:event_zoomSliderStateChanged
-    
+
     public int getZoomLevel() {
         return zoom;
     }
-    
+
     public void setZoomLevel(int level) {
         if (level >= zoomSlider.getMinimum() && level <= zoomSlider.getMaximum()) {
             this.zoom = level;
@@ -380,7 +394,7 @@ public class CompressorView extends javax.swing.JFrame {
         }
     }
     private void nextButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_nextButtonActionPerformed
-        try {                                           
+        try {
             if (currentPage + 1 > compressor.getNumberOfPages()) {
                 currentPage = 1;
             } else {
@@ -404,8 +418,7 @@ public class CompressorView extends javax.swing.JFrame {
         }
         renderPreview();
     }//GEN-LAST:event_backButtonActionPerformed
-    
-    
+
     private void toggleControl(boolean status) {
         List<JComponent> list = new ArrayList<>();
         list.add(dpiSlider);
@@ -418,13 +431,14 @@ public class CompressorView extends javax.swing.JFrame {
             element.setEnabled(status);
         }
     }
-    private void renderPreview() {  
-        SwingUtilities.invokeLater(new Runnable(){
+
+    private void renderPreview() {
+        SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
                 try {
                     previewImage = compressor.getPreview(currentPage);
-                    previewImage = Thumbnails.of(previewImage).scale((float) zoom/100).asBufferedImage();
+                    previewImage = Thumbnails.of(previewImage).scale((float) zoom / 100).asBufferedImage();
                     int width = previewImage.getWidth();
                     int height = previewImage.getHeight();
                     previewPanel.getInnterPanel().setPreferredSize(new Dimension(width, height));
@@ -440,6 +454,7 @@ public class CompressorView extends javax.swing.JFrame {
             }
         });
     }
+
     /**
      * @param args the command line arguments
      */
@@ -455,7 +470,7 @@ public class CompressorView extends javax.swing.JFrame {
             java.util.logging.Logger.getLogger(CompressorView.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
-        
+
         //</editor-fold>
 
         /* Create and display the form */
